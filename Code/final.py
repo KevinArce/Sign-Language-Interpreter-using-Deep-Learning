@@ -37,7 +37,7 @@ def keras_predict(model, image):
 
 def get_pred_text_from_db(pred_class):
 	conn = sqlite3.connect("gesture_db.db")
-	cmd = "SELECT g_name FROM gesture WHERE g_id="+str(pred_class)
+	cmd = f"SELECT g_name FROM gesture WHERE g_id={str(pred_class)}"
 	cursor = conn.execute(cmd)
 	for row in cursor:
 		return row[0]
@@ -45,15 +45,12 @@ def get_pred_text_from_db(pred_class):
 def get_pred_from_contour(contour, thresh):
 	x1, y1, w1, h1 = cv2.boundingRect(contour)
 	save_img = thresh[y1:y1+h1, x1:x1+w1]
-	text = ""
 	if w1 > h1:
 		save_img = cv2.copyMakeBorder(save_img, int((w1-h1)/2) , int((w1-h1)/2) , 0, 0, cv2.BORDER_CONSTANT, (0, 0, 0))
 	elif h1 > w1:
 		save_img = cv2.copyMakeBorder(save_img, 0, 0, int((h1-w1)/2) , int((h1-w1)/2) , cv2.BORDER_CONSTANT, (0, 0, 0))
 	pred_probab, pred_class = keras_predict(model, save_img)
-	if pred_probab*100 > 70:
-		text = get_pred_text_from_db(pred_class)
-	return text
+	return get_pred_text_from_db(pred_class) if pred_probab > 70 / 100 else ""
 
 def get_operator(pred_text):
 	try:
@@ -156,7 +153,7 @@ def calculator_mode(cam):
 						second = ''
 						flag['clear'] = True
 						try:
-							calc_text += "= "+str(eval(calc_text))
+							calc_text += f"= {str(eval(calc_text))}"
 						except:
 							calc_text = "Invalid operation"
 						if is_voice_on:
@@ -209,30 +206,37 @@ def calculator_mode(cam):
 
 		blackboard = np.zeros((480, 640, 3), dtype=np.uint8)
 		cv2.putText(blackboard, "Calculator Mode", (100, 50), cv2.FONT_HERSHEY_TRIPLEX, 1.5, (255, 0,0))
-		cv2.putText(blackboard, "Predicted text- " + pred_text, (30, 100), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 255, 0))
-		cv2.putText(blackboard, "Operator " + operator, (30, 140), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 255, 127))
+		cv2.putText(
+			blackboard,
+			f"Predicted text- {pred_text}",
+			(30, 100),
+			cv2.FONT_HERSHEY_TRIPLEX,
+			1,
+			(255, 255, 0),
+		)
+
+		cv2.putText(
+			blackboard,
+			f"Operator {operator}",
+			(30, 140),
+			cv2.FONT_HERSHEY_TRIPLEX,
+			1,
+			(255, 255, 127),
+		)
+
 		cv2.putText(blackboard, calc_text, (30, 240), cv2.FONT_HERSHEY_TRIPLEX, 2, (255, 255, 255))
 		cv2.putText(blackboard, info, (30, 440), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 255, 255) )
-		if is_voice_on:
-			cv2.putText(blackboard, " ", (450, 440), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 127, 0))
-		else:
-			cv2.putText(blackboard, " ", (450, 440), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 127, 0))
+		cv2.putText(blackboard, " ", (450, 440), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 127, 0))
 		cv2.rectangle(img, (x,y), (x+w, y+h), (0,255,0), 2)
 		res = np.hstack((img, blackboard))
 		cv2.imshow("Recognizing gesture", res)
 		cv2.imshow("thresh", thresh)
 		keypress = cv2.waitKey(1)
-		if keypress == ord('q') or keypress == ord('t'):
+		if keypress in [ord('q'), ord('t')]:
 			break
-		if keypress == ord('v') and is_voice_on:
-			is_voice_on = False
-		elif keypress == ord('v') and not is_voice_on:
-			is_voice_on = True
-
-	if keypress == ord('t'):
-		return 1
-	else:
-		return 0
+		if keypress == ord('v'):
+			is_voice_on = not is_voice_on
+	return 1 if keypress == ord('t') else 0
 
 def text_mode(cam):
 	global is_voice_on
@@ -279,28 +283,27 @@ def text_mode(cam):
 			word = ""
 		blackboard = np.zeros((480, 640, 3), dtype=np.uint8)
 		cv2.putText(blackboard, " ", (180, 50), cv2.FONT_HERSHEY_TRIPLEX, 1.5, (255, 0,0))
-		cv2.putText(blackboard, "Predicted text- " + text, (30, 100), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 255, 0))
+		cv2.putText(
+			blackboard,
+			f"Predicted text- {text}",
+			(30, 100),
+			cv2.FONT_HERSHEY_TRIPLEX,
+			1,
+			(255, 255, 0),
+		)
+
 		cv2.putText(blackboard, word, (30, 240), cv2.FONT_HERSHEY_TRIPLEX, 2, (255, 255, 255))
-		if is_voice_on:
-			cv2.putText(blackboard, " ", (450, 440), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 127, 0))
-		else:
-			cv2.putText(blackboard, " ", (450, 440), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 127, 0))
+		cv2.putText(blackboard, " ", (450, 440), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 127, 0))
 		cv2.rectangle(img, (x,y), (x+w, y+h), (0,255,0), 2)
 		res = np.hstack((img, blackboard))
 		cv2.imshow("Recognizing gesture", res)
 		cv2.imshow("thresh", thresh)
 		keypress = cv2.waitKey(1)
-		if keypress == ord('q') or keypress == ord('c'):
+		if keypress in [ord('q'), ord('c')]:
 			break
-		if keypress == ord('v') and is_voice_on:
-			is_voice_on = False
-		elif keypress == ord('v') and not is_voice_on:
-			is_voice_on = True
-
-	if keypress == ord('c'):
-		return 2
-	else:
-		return 0
+		if keypress == ord('v'):
+			is_voice_on = not is_voice_on
+	return 2 if keypress == ord('c') else 0
 
 def recognize():
 	cam = cv2.VideoCapture(1)
