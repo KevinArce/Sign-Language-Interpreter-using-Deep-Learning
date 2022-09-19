@@ -7,8 +7,8 @@ def flip_images():
 	labels = []
 	for g_id in os.listdir(gest_folder):
 		for i in range(1200):
-			path = gest_folder+"/"+g_id+"/"+str(i+1)+".jpg"
-			new_path = gest_folder+"/"+g_id+"/"+str(i+1+1200)+".jpg"
+			path = f"{gest_folder}/{g_id}/{str(i + 1)}.jpg"
+			new_path = f"{gest_folder}/{g_id}/{str(i + 1 + 1200)}.jpg"
 			print(path)
 			img = cv2.imread(path, 0)
 			img = cv2.flip(img, 1)
